@@ -23,9 +23,9 @@ jobs:
       - name: Run tests
         run: pytest
 
-    deploy:
-      needs: build
-      runs-on: ubuntu-latest
-      steps:
-        - name: Deploy to Kubernetes
-          run: kubectl apply -f deployment.yaml -f service.yaml
+  deploy:
+    needs: build  # Ensures 'deploy' runs after 'build' is successful
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Kubernetes
+        run: kubectl apply -f deployment.yaml -f service.yaml
