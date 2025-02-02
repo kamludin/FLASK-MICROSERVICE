@@ -30,15 +30,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Set up Kubernetes context
+      - name: Set up Kind (Kubernetes in Docker)
         run: |
-          echo "${KUBE_CONFIG}" > kubeconfig.yaml
-          export KUBECONFIG=$(pwd)/kubeconfig.yaml
-        env:
-          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+          # Install Kind
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
 
-      - name: Test Kubernetes Connection
-        run: kubectl --kubeconfig=kubeconfig.yaml cluster-info
+          # Create a Kind cluster
+          kind create cluster --name ci-cluster
+
+          # Set up kubectl
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+
+          # Verify the cluster
+          kubectl cluster-info
 
       - name: Deploy to Kubernetes
-        run: kubectl --kubeconfig=kubeconfig.yaml apply -f deployment.yaml -f service.yaml --validate=false
+        run: |
+          kubectl apply -f deployment.yaml -f service.yaml
