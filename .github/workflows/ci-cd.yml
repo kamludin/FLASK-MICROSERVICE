@@ -23,12 +23,19 @@ jobs:
       - name: Run tests
         run: pytest
 
-  deploy:  # Fix: Correct indentation (same level as build)
+  deploy:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code  # Fix: Ensure the code is available before deployment
+      - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Set up Kubernetes context
+        run: |
+          echo "$KUBE_CONFIG" > kubeconfig.yaml
+          export KUBECONFIG=kubeconfig.yaml
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+
       - name: Deploy to Kubernetes
-        run: kubectl apply -f deployment.yaml -f service.yaml
+        run: kubectl --kubeconfig=kubeconfig.yaml apply -f deployment.yaml -f service.yaml
