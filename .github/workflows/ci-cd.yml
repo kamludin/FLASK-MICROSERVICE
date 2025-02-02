@@ -38,4 +38,4 @@ jobs:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
 
       - name: Deploy to Kubernetes
-        run: kubectl --kubeconfig=~/.kube/config apply -f deployment.yaml -f service.yaml
+        run: kubectl --kubeconfig=kubeconfig.yaml apply -f deployment.yaml -f service.yaml
