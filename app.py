@@ -4,6 +4,11 @@ app = Flask(__name__)
 
 items = []
 
+# Root route
+@app.route('/')
+def home():
+    return "Welcome to the Flask API!"
+
 @app.route('/items', methods=['GET'])
 def get_items():
     return jsonify(items)
