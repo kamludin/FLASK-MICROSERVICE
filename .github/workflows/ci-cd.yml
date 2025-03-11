@@ -1,19 +1,55 @@
-name: CI/CD Pipeline
+name: Secure CI/CD Pipeline
 
 on:
   push:
     branches:
       - main
+  pull_request:
+
+permissions:
+  security-events: write  # Ensure CodeQL can upload scan results
 
 jobs:
-  build:
+  security:
+    name: Security Checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+      - name: Run Secret Scanning with GitLeaks
+        uses: gitleaks/gitleaks-action@v2
+        continue-on-error: true
+
+      - name: Run Dependency Security Audit (pip-audit)
+        run: |
+          pip install pip-audit
+          pip-audit
+
+      - name: Run Dependency Security Audit (Snyk)
+        if: env.SNYK_TOKEN != ''
+        uses: snyk/actions/python@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        continue-on-error: true
+
+  build:
+    needs: security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
         with:
           python-version: '3.12'
 
@@ -23,29 +59,39 @@ jobs:
       - name: Run tests
         run: pytest
 
-  deploy:
+  container_scan:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Scan Docker Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          exit-code: "1"
+          severity: "HIGH,CRITICAL"
+
+      - name: Scan for Secrets with TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: "./"  # Scans entire repo
+          base: "origin/main"
+
+  deploy:
+    needs: [build, container_scan]
+    runs-on: ubuntu-latest
+    steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set up Kind (Kubernetes in Docker)
         run: |
-          # Install Kind
           curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
           chmod +x ./kind
           sudo mv ./kind /usr/local/bin/kind
-
-          # Create a Kind cluster
           kind create cluster --name ci-cluster
-
-          # Set up kubectl
           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
           chmod +x kubectl
           sudo mv kubectl /usr/local/bin/kubectl
-
-          # Verify the cluster
           kubectl cluster-info
 
       - name: Deploy to Kubernetes
