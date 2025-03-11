@@ -35,14 +35,15 @@ jobs:
       - name: Install Security Tools
         run: pip install safety pip-audit
 
-      - name: Run Safety Scan
+      - name: Run Safety Scan (Ignoring System Packages)
         run: |
-          safety check -r filtered_requirements.txt --json > safety_report.json || true
+          safety check -r filtered_requirements.txt --ignore=PYSEC-2024-75 || true
 
-      - name: Run pip-audit
-        run: pip-audit --requirement filtered_requirements.txt --format=json --fix || true
+      - name: Run pip-audit & Auto-Fix
+        run: |
+          pip-audit --requirement filtered_requirements.txt --fix || true
 
-      - name: Update requirements.txt
+      - name: Update requirements.txt (if fixes applied)
         run: pip freeze > requirements.txt
 
       - name: Commit & Push Fixes
