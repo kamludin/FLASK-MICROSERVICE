@@ -7,7 +7,7 @@ on:
   pull_request:
 
 permissions:
-  security-events: write  # Ensure CodeQL can upload scan results
+  security-events: write  # Ensures CodeQL can upload scan results
 
 jobs:
   security:
@@ -17,13 +17,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+      - name: Manually Clone CodeQL
+        run: git clone --branch v3 https://github.com/github/codeql-action.git
+
+      - name: Initialize CodeQL (Local)
+        uses: ./codeql-action/init@v3
         with:
           languages: python
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: ./codeql-action/analyze@v3
 
       - name: Run Secret Scanning with GitLeaks
         uses: gitleaks/gitleaks-action@v2
