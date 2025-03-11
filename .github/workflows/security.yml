@@ -38,10 +38,12 @@ jobs:
       - name: Run Safety Scan (Ignoring System Packages)
         run: |
           safety check -r filtered_requirements.txt --ignore=PYSEC-2024-75 --json > safety_report.json || true
+          cat safety_report.json || echo "Safety scan completed."
 
       - name: Run pip-audit & Auto-Fix
         run: |
           pip-audit --requirement filtered_requirements.txt --fix --format=json --output pip_audit_report.json || true
+          cat pip_audit_report.json || echo "pip-audit scan completed."
 
       - name: Update requirements.txt (if fixes applied)
         run: pip freeze > requirements.txt
