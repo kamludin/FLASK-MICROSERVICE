@@ -30,18 +30,18 @@ jobs:
         run: grep -v "pywin32" requirements.txt > filtered_requirements.txt
 
       - name: Install dependencies
-        run: pip install --upgrade --force-reinstall -r filtered_requirements.txt
+        run: pip install --upgrade -r filtered_requirements.txt
 
       - name: Install Security Tools
         run: pip install safety pip-audit
 
       - name: Run Safety Scan (Ignoring System Packages)
         run: |
-          safety check -r filtered_requirements.txt --ignore=PYSEC-2024-75 || true
+          safety check -r filtered_requirements.txt --ignore=PYSEC-2024-75 --json > safety_report.json || true
 
       - name: Run pip-audit & Auto-Fix
         run: |
-          pip-audit --requirement filtered_requirements.txt --fix || true
+          pip-audit --requirement filtered_requirements.txt --fix --format=json --output pip_audit_report.json || true
 
       - name: Update requirements.txt (if fixes applied)
         run: pip freeze > requirements.txt
