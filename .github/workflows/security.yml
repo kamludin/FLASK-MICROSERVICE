@@ -21,21 +21,24 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Upgrade pip and install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install --upgrade --force-reinstall -r requirements.txt
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Filter out Windows-specific dependencies
+        run: grep -v "pywin32" requirements.txt > filtered_requirements.txt
+
+      - name: Install dependencies
+        run: pip install --upgrade --force-reinstall -r filtered_requirements.txt
 
       - name: Install Security Tools
-        run: |
-          pip install safety pip-audit
+        run: pip install safety pip-audit
 
       - name: Run Safety Scan
         run: |
-          safety check -r requirements.txt --json > safety_report.json || true
+          safety check -r filtered_requirements.txt --json > safety_report.json || true
 
       - name: Run pip-audit
-        run: pip-audit --requirement requirements.txt --format=json > pip_audit_report.json || true
+        run: pip-audit --requirement filtered_requirements.txt --format=json > pip_audit_report.json || true
 
       - name: Upload Security Reports
         uses: actions/upload-artifact@v4
