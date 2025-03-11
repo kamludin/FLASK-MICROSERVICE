@@ -1,0 +1,73 @@
+name: Security & Testing Pipeline
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 12 * * 1'  # Runs every Monday at 12 PM UTC
+
+jobs:
+  security-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      # ✅ Code Scanning with CodeQL (Python)
+      - name: 📊 CodeQL Analysis
+        uses: github/codeql-action/init@v2
+        with:
+          languages: python
+      - uses: github/codeql-action/analyze@v2
+
+      # ✅ Dependency Scanning with Safety
+      - name: 🛡️ Python Dependency Scan
+        run: |
+          pip install safety
+          safety check -r requirements.txt
+
+      # ✅ Container Scanning with Trivy
+      - name: 🐳 Scan Docker Image for Vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "my-flask-app:latest"
+          format: "table"
+          ignore-unfixed: true
+          severity: "CRITICAL,HIGH"
+
+      # ✅ Kubernetes Security Scan
+      - name: 🚀 Scan Kubernetes Deployment for Misconfigurations
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "config"
+          file-path: "deployment.yaml"
+
+      # ✅ Secret Scanning with Gitleaks
+      - name: 🔑 Secret Scanning
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          config-path: ".gitleaks.toml"
+
+  # ✅ Run Automated Tests using Pytest
+  run-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: 📦 Install Dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: 🧪 Run Tests with Pytest
+        run: pytest test_app.py --maxfail=1 --disable-warnings -q
