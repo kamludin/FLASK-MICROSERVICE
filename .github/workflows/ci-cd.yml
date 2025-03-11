@@ -18,15 +18,15 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Manually Clone CodeQL
-        run: git clone --branch v3 https://github.com/github/codeql-action.git $GITHUB_WORKSPACE/codeql-action
+        run: git clone --branch v3 https://github.com/github/codeql-action.git codeql-action
 
       - name: Initialize CodeQL (Local)
-        uses: ./codeql-action/init@v3
+        uses: ./codeql-action/init
         with:
           languages: python
 
       - name: Perform CodeQL Analysis
-        uses: ./codeql-action/analyze@v3
+        uses: ./codeql-action/analyze
 
       - name: Run Secret Scanning with GitLeaks
         uses: gitleaks/gitleaks-action@v2
@@ -89,7 +89,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Kind (Kubernetes in Docker)
+      - name: Set up Kubernetes Tools
         run: |
           curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
           chmod +x ./kind
@@ -103,3 +103,6 @@ jobs:
       - name: Deploy to Kubernetes
         run: |
           kubectl apply -f deployment.yaml -f service.yaml
+          
+      - name: Verify Deployment
+        run: kubectl get pods -A
