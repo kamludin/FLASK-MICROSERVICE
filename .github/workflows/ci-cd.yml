@@ -5,88 +5,107 @@ on:
     branches:
       - main
   pull_request:
+  schedule:
+    - cron: '0 12 * * 1'  # Runs every Monday at 12 PM UTC
 
 permissions:
-  security-events: write  # Ensures CodeQL can upload scan results
+  security-events: write  # Allows security tools to upload results
+  actions: read
+  contents: read
 
 jobs:
-  security:
-    name: Security Checks
+  security-tests:
+    name: Security Scans
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Initialize CodeQL (GitHub Hosted)
+      - name: 📊 Initialize CodeQL (GitHub Hosted)
         uses: github/codeql-action/init@v3
         with:
           languages: python
 
-      - name: Perform CodeQL Analysis
+      - name: 🔍 Run CodeQL Analysis
         uses: github/codeql-action/analyze@v3
 
-      - name: Run Secret Scanning with GitLeaks
+      - name: 🛡️ Python Dependency Security Scan (Safety)
+        run: |
+          pip install safety
+          safety check -r requirements.txt --full-report
+
+      - name: 🔑 Secret Scanning with GitLeaks
         uses: gitleaks/gitleaks-action@v2
         continue-on-error: true
 
-      - name: Run Dependency Security Audit (pip-audit)
+      - name: 🔍 Run Dependency Security Audit (pip-audit)
         run: |
           pip install --upgrade pip
           pip install pip-audit
           pip-audit
 
-      - name: Run Dependency Security Audit (Snyk)
+      - name: 🛡️ Run Dependency Security Audit (Snyk)
         if: env.SNYK_TOKEN != ''
         uses: snyk/actions/python@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         continue-on-error: true
 
-  build:
-    needs: security
+  run-tests:
+    name: Run Automated Tests
+    needs: security-tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v3
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.12'
+          python-version: '3.9'
 
-      - name: Install dependencies
+      - name: 📦 Cache Python Dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: 📦 Install Dependencies
         run: |
-          pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run tests
-        run: pytest || echo "Tests failed, but continuing..."
+      - name: 🧪 Run Tests with Pytest
+        run: pytest test_app.py --maxfail=1 --disable-warnings -q
 
   container_scan:
-    needs: build
+    name: Scan Container & Secrets
+    needs: run-tests
     runs-on: ubuntu-latest
     steps:
-      - name: Scan Docker Image with Trivy
+      - name: 🐳 Scan Docker Image for Vulnerabilities (Trivy)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: "fs"
           exit-code: "1"
           severity: "HIGH,CRITICAL"
 
-      - name: Scan for Secrets with TruffleHog
+      - name: 🔍 Scan for Secrets with TruffleHog
         uses: trufflesecurity/trufflehog@main
         with:
           path: "./"  # Scans entire repo
           base: "origin/main"
 
   deploy:
-    needs: [build, container_scan]
+    name: Deploy to Kubernetes
+    needs: [container_scan]
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Set up Kind (Kubernetes in Docker)
+      - name: 🚀 Set up Kind (Kubernetes in Docker)
         run: |
           curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
           chmod +x ./kind
@@ -97,6 +116,6 @@ jobs:
           sudo mv kubectl /usr/local/bin/kubectl
           kubectl cluster-info
 
-      - name: Deploy to Kubernetes
+      - name: 🚀 Deploy to Kubernetes
         run: |
           kubectl apply -f deployment.yaml -f service.yaml
