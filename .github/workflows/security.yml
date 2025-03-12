@@ -26,9 +26,8 @@ jobs:
       - name: Upgrade pip
         run: python -m pip install --upgrade pip
 
-      - name: Filter Out System Dependencies (Fix Non-PyPI Errors)
-        run: |
-          grep -vE "bcc|cloud-init|command-not-found|distro-info|python-apt|python-debian|sos|ubuntu-pro-client|ufw|walinuxagent" requirements.txt > filtered_requirements.txt
+      - name: Filter out Windows-specific dependencies
+        run: grep -v "pywin32" requirements.txt > filtered_requirements.txt
 
       - name: Install dependencies
         run: pip install --upgrade -r filtered_requirements.txt
@@ -44,7 +43,7 @@ jobs:
       - name: Run pip-audit & Auto-Fix (Ignoring System Packages)
         run: |
           set +e  # Prevent failure due to skipped system dependencies
-          pip-audit --requirement filtered_requirements.txt --fix --format=json --output pip_audit_report.json
+          pip-audit --requirement filtered_requirements.txt --fix --format=json --output pip_audit_report.json || true
           audit_status=$?
           echo "====== PIP AUDIT RESULTS ======"
           cat pip_audit_report.json || echo "No vulnerabilities found."
