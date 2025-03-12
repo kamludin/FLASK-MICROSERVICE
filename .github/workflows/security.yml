@@ -8,7 +8,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: '0 0 * * 0'  # Runs every Sunday
+    - cron: '0 0 * * *'  # Runs daily at midnight
 
 jobs:
   security:
@@ -35,26 +35,33 @@ jobs:
       - name: Install Security Tools
         run: pip install safety pip-audit
 
-      - name: Run Safety Scan (Ignoring System Packages)
+      - name: Run Safety Scan
         run: |
-          safety check -r filtered_requirements.txt --ignore=PYSEC-2024-75 --json > safety_report.json || true
-          cat safety_report.json || echo "Safety scan completed."
+          safety check -r filtered_requirements.txt --ignore=PYSEC-2024-75 --json > safety_report.json
+          cat safety_report.json
 
       - name: Run pip-audit & Auto-Fix
         run: |
-          pip-audit --requirement filtered_requirements.txt --fix --format=json --output pip_audit_report.json || true
-          cat pip_audit_report.json || echo "pip-audit scan completed."
+          pip-audit --requirement filtered_requirements.txt --fix --format=json --output pip_audit_report.json
+          cat pip_audit_report.json
 
       - name: Update requirements.txt (if fixes applied)
-        run: pip freeze > requirements.txt
+        run: |
+          pip freeze > requirements.txt
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git diff --quiet || echo "changes=true" >> $GITHUB_OUTPUT
 
       - name: Commit & Push Fixes
+        if: steps.changes.outputs.changes == 'true'
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           git add requirements.txt
-          git commit -m "Auto-fix dependencies from security audit" || echo "No changes to commit"
-          git push origin main || echo "No changes to push"
+          git commit -m "Auto-fix dependencies from security audit"
+          git push origin main
 
       - name: Upload Security Reports
         uses: actions/upload-artifact@v4
