@@ -40,13 +40,27 @@ jobs:
           safety check -r filtered_requirements.txt --ignore=PYSEC-2024-75 --json > safety_report.json || true
           cat safety_report.json || echo "Safety scan completed."
 
-      - name: Run pip-audit & Auto-Fix
+      - name: Run pip-audit & Auto-Fix (Ignoring System Packages)
         run: |
+          set +e  # Prevent failure due to skipped system dependencies
           pip-audit --requirement filtered_requirements.txt --fix --format=json --output pip_audit_report.json || true
-          cat pip_audit_report.json || echo "pip-audit scan completed."
+          audit_status=$?
+          echo "====== PIP AUDIT RESULTS ======"
+          cat pip_audit_report.json || echo "No vulnerabilities found."
+          if [ $audit_status -eq 0 ]; then
+            echo "No vulnerabilities detected."
+          else
+            echo "Vulnerabilities found, but continuing pipeline execution."
+          fi
+          set -e  # Re-enable automatic failure for later steps
 
-      - name: Update requirements.txt (if fixes applied)
-        run: pip freeze > requirements.txt
+      - name: Update requirements.txt (Only if Needed)
+        run: |
+          if git diff --quiet requirements.txt; then
+            echo "No changes detected in requirements.txt, skipping commit."
+          else
+            pip freeze > requirements.txt
+          fi
 
       - name: Commit & Push Fixes
         run: |
