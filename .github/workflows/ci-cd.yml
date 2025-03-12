@@ -25,21 +25,24 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
+      - name: 🚀 Remove Windows-Only Packages
+        run: grep -v "pywin32" requirements.txt > fixed_requirements.txt  # Removes pywin32
+
       - name: 🛡️ Python Dependency Security Scan (Safety)
         run: |
           pip install safety
-          safety check -r requirements.txt --full-report || true  # Allow failure
+          safety check -r fixed_requirements.txt --full-report || true  # Allow failure
 
       - name: 🔍 Run Dependency Security Audit (pip-audit)
         run: |
           pip install --upgrade pip
           pip install pip-audit
-          pip-audit --fix || true  # Auto-fix vulnerabilities
+          pip-audit --requirement fixed_requirements.txt --fix || true  # Auto-fix vulnerabilities
 
       - name: 🛠️ Auto-Fix Vulnerable Dependencies
         run: |
-          pip install --upgrade -r requirements.txt
-          pip freeze > requirements.txt  # Save the fixed dependencies
+          pip install --upgrade -r fixed_requirements.txt
+          pip freeze > fixed_requirements.txt  # Save the fixed dependencies
 
       - name: 🔑 Secret Scanning with GitLeaks
         uses: gitleaks/gitleaks-action@v2
@@ -61,7 +64,7 @@ jobs:
 
       - name: 📦 Install Dependencies
         run: |
-          pip install -r requirements.txt
+          pip install -r fixed_requirements.txt
 
       - name: 🧪 Run Tests with Pytest
         run: pytest test_app.py --maxfail=1 --disable-warnings -q || true  # Allow test failures
@@ -88,7 +91,7 @@ jobs:
   deploy:
     name: Deploy to Kubernetes
     needs:
-      - container_scan  # Correct syntax for dependencies
+      - container_scan
     runs-on: ubuntu-latest
 
     steps:
