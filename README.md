@@ -92,6 +92,6 @@ This project includes automated testing and security scanning using GitHub Actio
 
 ---
 
-###  Secure & Scalable Flask Microservice Ready!
+##  Secure & Scalable Flask Microservice Ready!
 Use this guide to build, test, and deploy your Flask microservice securely.
 
